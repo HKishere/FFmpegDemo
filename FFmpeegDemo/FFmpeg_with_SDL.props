@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ImportGroup Label="PropertySheets" />
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <IncludePath>F:\TOOLS\SDL2-2.0.20\include;F:\TOOLS\ffmpeg-n4.4.1-2-gcc33e73618-win64-lgpl-shared-4.4\ffmpeg-n4.4.1-2-gcc33e73618-win64-lgpl-shared-4.4\include;$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <Link>
+      <AdditionalLibraryDirectories>F:\TOOLS\SDL2-2.0.20\lib\x64;F:\TOOLS\ffmpeg-n4.4.1-2-gcc33e73618-win64-lgpl-shared-4.4\ffmpeg-n4.4.1-2-gcc33e73618-win64-lgpl-shared-4.4\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>avcodec.lib;avdevice.lib;avfilter.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;SDL2main.lib;SDL2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup />
+</Project>
