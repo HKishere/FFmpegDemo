@@ -33,27 +33,35 @@ int main()
 	AVOutputFormat* oFmt = NULL;
 	AVFormatContext* iFmtCtx = NULL, *oFmtCtx = NULL;
 
-	AVPacket* AVpac;
-	const char pstrInPutFileName[256] = { 0 };
-	const char pstrOutPutFileName[256] = { 0 };
+	AVPacket AVpac;
+	//const char pstrInPutFileName[256] = "C:\\Users\\HZK\\Desktop\\无人机\\视频\\VID_20210908_133050.mp4";
+	const char pstrInPutFileName[256] = "rtsp://admin:abcd1234@192.168.2.146:554/h264/ch1/main/av_stream";
+	const char pstrOutPutFileName[256] = "rtmp://visione.kishere.cn:3519/live/79uJfl07R?sign=nru1BlA7Rz";
 	int ret, i;
+	int videoindex;
 
-	av_register_all();
-	if (!avformat_open_input(&iFmtCtx, pstrInPutFileName, NULL, NULL))
+	//av_register_all();
+	avformat_network_init();
+	if (avformat_open_input(&iFmtCtx, pstrInPutFileName, NULL, NULL))
 	{
 		std::cout << "open inputfile faild!" << std::endl;
+		system("pasue");
 		return 0;
 	}
-	if (!avformat_find_stream_info(iFmtCtx, NULL))
+	if (avformat_find_stream_info(iFmtCtx, NULL) < 0)
 	{
 		std::cout << "find stream info faild!" << std::endl;
+		system("pasue");
+		return 0;
 	}
 	av_dump_format(iFmtCtx, 0, pstrInPutFileName, false); //打印信息
 
-	avformat_alloc_output_context2(&oFmtCtx, NULL, NULL, pstrOutPutFileName);
+	avformat_alloc_output_context2(&oFmtCtx, NULL, "flv", NULL);
 	if (!oFmtCtx)
 	{
 		std::cout << "create output Context faild!" << std::endl;
+		system("pasue");
+		return 0;
 	}
 	oFmt = oFmtCtx->oformat;
 
@@ -62,20 +70,33 @@ int main()
 		//根据输入流创建输出流（Create output AVStream according to input AVStream）
 		AVStream *in_stream = iFmtCtx->streams[i];
 		AVStream *out_stream = NULL;
+		//if (in_stream->codecpar->codec_type == AVMEDIA_TYPE_VIDEO)
+		videoindex = i;
+		out_stream = avformat_new_stream(oFmtCtx, avcodec_find_decoder(in_stream->codecpar->codec_id));
+		if (!out_stream)
+		{
+			std::cout << "allocate output stream faild!" << std::endl;
+			system("pasue");
+			return 0;
+		}
+		AVCodecContext *tempCodecCtx = avcodec_alloc_context3(avcodec_find_decoder(in_stream->codecpar->codec_id));
+		avcodec_parameters_to_context(tempCodecCtx, in_stream->codecpar);
+		if (avcodec_parameters_from_context(out_stream->codecpar, tempCodecCtx) < 0)
+		{
+			std::cout << "copy context faild!" << std::endl;
+			system("pasue");
+			return 0;
+		}
 		if (in_stream->codecpar->codec_type == AVMEDIA_TYPE_VIDEO)
 		{
-			out_stream = avformat_new_stream(oFmtCtx, in_stream->codec->codec);
-			if (!out_stream)
-			{
-				std::cout << "allocate output stream faild!" << std::endl;
-			}
-			if (!avcodec_copy_context(out_stream->codec, in_stream->codec))
-			{
-				std::cout << "copy context faild!" << std::endl;
-			}
-			out_stream->codec->codec_tag = 0;
-			if (oFmtCtx->oformat->flags & AVFMT_GLOBALHEADER)
-				out_stream->codec->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+			out_stream->codecpar->bit_rate = 256;
+		}
+		out_stream->codecpar->codec_tag = 0;
+		if (oFmtCtx->oformat->flags & AVFMT_GLOBALHEADER)
+		{
+			avcodec_parameters_to_context(tempCodecCtx, out_stream->codecpar);
+			tempCodecCtx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+			avcodec_parameters_from_context(out_stream->codecpar, tempCodecCtx);
 		}
 	}
 	av_dump_format(oFmtCtx, 0, pstrOutPutFileName, 1);
@@ -87,17 +108,77 @@ int main()
 		if (ret < 0)
 		{
 			std::cout << "open URL faild!" << std::endl;
+			system("pasue");
+			return 0;
 		}
 	}
 	ret = avformat_write_header(oFmtCtx, NULL);
 	if (ret < 0) {
 		std::cout << "faild when opening output URL !" << std::endl;
+		system("pasue");
+		return 0;
 	}
 	int64_t start_time = av_gettime();
+	int nFreamIndex = 0;
 	while (1)
 	{
-	}
+		if (av_read_frame(iFmtCtx, &AVpac))
+		{
+			break;
+		}
+		//先不考虑没有pts的情况
+		//if (AVpac.pts == AV_NOPTS_VALUE)
+		//{
+		//	AVRational time_base1 = iFmtCtx->streams[videoindex]->time_base;
+		//	int64_t calc_duration = (double)AV_TIME_BASE / av_q2d(iFmtCtx->streams[videoindex]->r_frame_rate);
+		//	AVpac.pts = (double)(nFreamIndex * calc_duration) / (double)(av_q2d(time_base1)*AV_TIME_BASE);
+		//}
 
+		//Important:Delay
+		if (AVpac.stream_index == videoindex) {
+			AVRational time_base = iFmtCtx->streams[videoindex]->time_base;
+			AVRational time_base_q = { 1, AV_TIME_BASE };
+			int64_t pts_time = av_rescale_q(AVpac.dts, time_base, time_base_q);
+			int64_t now_time = av_gettime() - start_time;
+			if (pts_time > now_time)
+				av_usleep(pts_time - now_time);
+		}
+		AVStream *iStream = iFmtCtx->streams[AVpac.stream_index];
+		AVStream *oStream = oFmtCtx->streams[AVpac.stream_index];
+
+		AVpac.pts = av_rescale_q_rnd(AVpac.pts, iStream->time_base, oStream->time_base, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX));
+		AVpac.dts = av_rescale_q_rnd(AVpac.dts, iStream->time_base, oStream->time_base, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX));
+		AVpac.duration = av_rescale_q(AVpac.duration, iStream->time_base, oStream->time_base);
+		AVpac.pos = -1;
+
+		if (AVpac.stream_index == videoindex) {
+			printf("Send %8d video frames to output URL\n", nFreamIndex);
+			nFreamIndex++;
+		}
+		ret = av_interleaved_write_frame(oFmtCtx, &AVpac);
+
+		if (ret < 0)
+		{
+			std::cout << "Error muxing packet!" << std::endl;
+			system("pasue");
+			return 0;
+		}
+		av_packet_unref(&AVpac);
+	}
+	av_write_trailer(oFmtCtx);
+
+	avformat_close_input(&iFmtCtx);
+	/* close output */
+	if (oFmtCtx && !(oFmt->flags & AVFMT_NOFILE))
+		avio_close(oFmtCtx->pb);
+	avformat_free_context(oFmtCtx);
+	if (ret < 0 && ret != AVERROR_EOF) {
+		printf("Error occurred.\n");
+		system("pasue");
+		return -1;
+	}
+	system("pasue");
+	return 0;
 }
 
 // 运行程序: Ctrl + F5 或调试 >“开始执行(不调试)”菜单

@@ -315,7 +315,7 @@ int main(int argc, char* argv[])
 {
 	FFmpeg_V_Param FF_Param;
 	SDL_Param SDL;
-	//init_ffmpeg(&FF_Param, const_cast<char*>("C:\\Users\\HZK\\Desktop\\yuntu_vedio.mp4"));
+	init_ffmpeg(&FF_Param, const_cast<char*>("C:\\Users\\HZK\\Desktop\\yuntu_vedio.mp4"));
 	//init_ffmpeg(&FF_Param, const_cast<char*>("rtsp://admin:abcd1234@192.168.2.146:554/h264/ch1/main/av_stream"));
 	//init_sdl2(&SDL, 1920, 1080);
 	vPlayer_sdl2(const_cast<char*>("C:\\Users\\HZK\\Desktop\\yuntu_vedio.mp4"));
